@@ -1,0 +1,21 @@
+{
+  "_comment": "Copy to ~/.config/usage-glance/config.json. All fields optional. Secrets also resolve from the macOS Keychain (service 'usage-glance') and process.env. Prefer the Keychain (run harden.sh) over plaintext here.",
+  "size": "small",
+  "spendTtlMinutes": 10,
+  "claudeMinProbeMinutes": 10,
+  "sources": {
+    "claude": true,
+    "codex": true,
+    "cursor": true,
+    "openrouter": true,
+    "deepseek": true,
+    "fal": true
+  },
+  "secrets": {
+    "CLAUDE_CODE_OAUTH_TOKEN": "sk-ant-oat01-... (from: claude setup-token)",
+    "OPENROUTER_API_KEY": "",
+    "DEEPSEEK_API_KEY": "",
+    "FAL_KEY": "admin-scoped fal key (fal.ai/dashboard/keys)"
+  },
+  "envFile": "~/.config/usage-glance/.env"
+}

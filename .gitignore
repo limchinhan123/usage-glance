@@ -1,0 +1,12 @@
+# Secrets & runtime state — never commit
+config.json
+.env
+*.local
+claude-creds.json
+.pkce.json
+.claude-cache.json
+.spend-*.json
+
+# macOS / editor cruft
+.DS_Store
+node_modules/
