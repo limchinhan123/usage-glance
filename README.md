@@ -18,6 +18,7 @@ Built on [Übersicht](https://github.com/felixhageloh/uebersicht). No server, no
 | **OpenRouter** | credits left · used | `/credits` |
 | **DeepSeek** | balance left | `/user/balance` |
 | **fal.ai** | credit balance | `/account/billing` |
+| **Manus** | credit balance, next reset | `/v2/usage.balance` |
 
 Each subscription row also draws a **quota-vs-time pacing bar** — a second bar showing how much of the window's *time* is left. If the green (quota) bar is longer than the blue (time) bar, you're pacing safely; if time overtakes quota, you're burning faster than the clock. The three plans reset on different days, so this lets you compare them apples-to-apples.
 
@@ -59,11 +60,17 @@ Cursor's individual Pro plan has no public API. But the desktop app keeps a **fr
 
 The easy ones. Each exposes a documented balance/credits endpoint hit with your own key: OpenRouter `GET /api/v1/credits` (`total_credits − total_usage`), DeepSeek `GET /user/balance`, fal.ai `GET /v1/account/billing?expand=credits` (needs an **admin**-scoped key — an inference key 403s on billing). Balances change slowly, so these are cached ~10 minutes.
 
+### Manus — the balance endpoint hiding behind a ledger
+
+Manus's public API documents `GET /v2/usage.list` — a paginated, signed **transaction ledger** (grants `+`, task costs `−`, refunds `+`). The tempting move is to sum it for a balance. **Don't.** Monthly subscription credits *expire* with no offsetting `−` entry, so the sum overcounts (it read ~7,500 when the account truly had ~4,300).
+
+The right call is an **undocumented sibling**, `GET /v2/usage.balance`, found by probing the v2 namespace (a real path 401s on a bad key; a fake one 404s). It returns the number straight: `total_credits = subscription_credits` (the monthly, resetting bucket) `+ gift_credits` (non-expiring), plus `next_grant_time` for the reset clock. One call, exact match to the in-app figure, no pagination. Auth is the `x-manus-api-key` header. Cached ~10 minutes like the other balances.
+
 ---
 
 ## Known gaps — got a better idea?
 
-Two tools I *wanted* in here but couldn't pull **reliably**. If you know a clean, non-fragile way to read either, please [open an issue or PR](../../issues) — I'd merge it happily.
+One tool I *wanted* in here but couldn't pull **reliably**. If you know a clean, non-fragile way to read it, please [open an issue or PR](../../issues) — I'd merge it happily.
 
 ### Gemini (consumer "Gemini" subscription)
 - **Want:** the "Usage limits" progress ("4% used, resets 3:27 PM"), like Claude/Codex.
@@ -71,11 +78,7 @@ Two tools I *wanted* in here but couldn't pull **reliably**. If you know a clean
 - **Why skipped:** the only path is scraping Google's consumer web auth — cookies rotate, it can trip account-security, and it breaks constantly.
 - **Better idea?** If Google ships a usage endpoint or a CLI token (à la `claude setup-token`), it's a 20-minute add.
 
-### Manus
-- **Want:** remaining credit balance (what Settings → Usage shows).
-- **Tried:** the API key works (`/v1/tasks` → 200), but ~50 probed paths for credits/balance/usage all 404. The official SDK confirms it — "Usage" is only a per-task `credit_usage` field; there is **no account-balance endpoint** (listed as a planned v2.0 feature).
-- **Why skipped:** the balance is UI-only; the only workaround is session-cookie scraping of manus.im.
-- **Better idea?** A documented balance endpoint (or a stable reverse-engineered one) drops straight in — the auth plumbing is already wired.
+> **Update — Manus solved.** Manus *was* in this list (the documented API exposes only a per-task ledger, no balance). It now ships: probing the v2 namespace surfaced an undocumented `GET /v2/usage.balance` that returns `total_credits` directly. See **[How the data is pulled → Manus](#manus--the-balance-endpoint-hiding-behind-a-ledger)**. Proof that the "better idea?" invitation works.
 
 Same invitation for everything else: spot a cleaner way to read any source, or want a provider added? Issues and PRs welcome.
 
@@ -104,6 +107,7 @@ Two pieces, deliberately decoupled:
    - `bash set-key-config.sh DEEPSEEK_API_KEY` → into config.json instead (no Keychain prompt)
    - **Claude:** `claude setup-token` → copy the `sk-ant-oat01-…` token → `bash set-key.sh CLAUDE_CODE_OAUTH_TOKEN`
    - **fal.ai:** create an **admin**-scoped key at fal.ai/dashboard/keys → `bash set-key.sh FAL_KEY`
+   - **Manus:** create a key at manus.im → Settings → API Keys → `bash set-key.sh MANUS_API_KEY`
    - **Codex / Cursor:** nothing to add — read from local files / the app's own token.
 
 ## Config reference
@@ -111,7 +115,7 @@ Two pieces, deliberately decoupled:
 `~/.config/usage-glance/config.json` (see `config.example.json`):
 
 - `size` — default scale: `small` · `medium` · `large` · `extra large`
-- `sources` — toggle rows on/off by key (`claude`, `codex`, `cursor`, `openrouter`, `deepseek`, `fal`)
+- `sources` — toggle rows on/off by key (`claude`, `codex`, `cursor`, `openrouter`, `deepseek`, `fal`, `manus`)
 - `spendTtlMinutes` / `claudeMinProbeMinutes` — cache windows
 - `secrets` — API keys (or store them in the Keychain instead)
 - `envFile` — optional path to an existing dotenv to source keys from

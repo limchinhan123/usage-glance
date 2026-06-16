@@ -103,8 +103,10 @@ function timeRemainingPct(w) {
   return Math.max(0, Math.min(100, ((w.resetsAt * 1000 - Date.now()) / (w.windowMinutes * 60000)) * 100));
 }
 function bal(s) {
+  if (s.balance == null) return "—";
+  if (s.unit) return `${Math.round(s.balance).toLocaleString()} ${s.unit}`;
   const cur = s.currency === "CNY" ? "¥" : "$";
-  return s.balance != null ? `${cur}${s.balance.toFixed(2)}` : "—";
+  return `${cur}${s.balance.toFixed(2)}`;
 }
 
 // ---------- per-style body renderers ----------

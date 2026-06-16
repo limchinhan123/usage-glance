@@ -7,7 +7,7 @@
 //   kind "spend": pay-as-you-go with consumed.usd and/or balance
 // Every source is wrapped so one failure never breaks the others (graceful "—").
 
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, openSync, readSync, closeSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -132,10 +132,32 @@ function collectCodex() {
   // newest by mtime
   files.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
 
+  // Read a whole file, or just its tail for huge ones (Codex rollouts can run
+  // past Node's ~512 MB string limit). rate_limits snapshots recur throughout
+  // the log, so the tail still holds a recent one. Drop the first (partial) line.
+  const TAIL_BYTES = 4 * 1024 * 1024;
+  const readForScan = (f) => {
+    const size = statSync(f).size;
+    if (size <= TAIL_BYTES) return readFileSync(f, "utf8").split("\n").filter(Boolean);
+    const fd = openSync(f, "r");
+    try {
+      const buf = Buffer.allocUnsafe(TAIL_BYTES);
+      readSync(fd, buf, 0, TAIL_BYTES, size - TAIL_BYTES);
+      return buf.toString("utf8").split("\n").filter(Boolean).slice(1);
+    } finally {
+      closeSync(fd);
+    }
+  };
+
   // scan newest files until we find the most recent rate_limits snapshot
   let snap = null;
   for (const f of files.slice(0, 8)) {
-    const lines = readFileSync(f, "utf8").split("\n").filter(Boolean);
+    let lines;
+    try {
+      lines = readForScan(f);
+    } catch {
+      continue;
+    }
     for (let i = lines.length - 1; i >= 0; i--) {
       let obj;
       try {
@@ -482,6 +504,32 @@ async function collectFal() {
   }
 }
 
+// ---------- Manus — credit balance from /v2/usage.balance ----------
+// Manus exposes a clean balance: total_credits = subscription_credits (monthly,
+// resetting) + gift_credits (non-expiring), plus next_grant_time for the reset.
+// (Don't sum the /v2/usage.list ledger for this — expired monthly credits leave
+// no entry, so the sum overcounts.) Auth via the x-manus-api-key header.
+async function collectManus() {
+  const base = { key: "manus", label: "Manus", kind: "spend", unit: "cr" };
+  const key = secret("MANUS_API_KEY");
+  if (!key) return { ...base, ok: false, note: "no key" };
+  try {
+    const r = await fetchJson("https://api.manus.ai/v2/usage.balance", {
+      headers: { "x-manus-api-key": key },
+    });
+    const bal = r.json?.total_credits;
+    if (!r.ok || bal == null) return { ...base, ok: false, note: `http ${r.status}` };
+    return {
+      ...base,
+      balance: Number(bal),
+      resetsAt: r.json.next_grant_time ? Number(r.json.next_grant_time) : null,
+      ok: true,
+    };
+  } catch (e) {
+    return { ...base, ok: false, note: String(e.message || e) };
+  }
+}
+
 // ---------- main ----------
 const jobs = [];
 if (enabled("claude")) jobs.push(collectClaude());
@@ -490,6 +538,7 @@ if (enabled("cursor")) jobs.push(cachedSource("cursor", collectCursor));
 if (enabled("openrouter")) jobs.push(cachedSource("openrouter", collectOpenRouter));
 if (enabled("deepseek")) jobs.push(cachedSource("deepseek", collectDeepSeek));
 if (enabled("fal")) jobs.push(cachedSource("fal", collectFal));
+if (enabled("manus")) jobs.push(cachedSource("manus", collectManus));
 
 const settled = await Promise.allSettled(jobs);
 const sources = settled.map((s) =>

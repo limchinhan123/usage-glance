@@ -9,13 +9,15 @@
     "cursor": true,
     "openrouter": true,
     "deepseek": true,
-    "fal": true
+    "fal": true,
+    "manus": true
   },
   "secrets": {
     "CLAUDE_CODE_OAUTH_TOKEN": "sk-ant-oat01-... (from: claude setup-token)",
     "OPENROUTER_API_KEY": "",
     "DEEPSEEK_API_KEY": "",
-    "FAL_KEY": "admin-scoped fal key (fal.ai/dashboard/keys)"
+    "FAL_KEY": "admin-scoped fal key (fal.ai/dashboard/keys)",
+    "MANUS_API_KEY": "sk-... (manus.im → Settings → API Keys)"
   },
   "envFile": "~/.config/usage-glance/.env"
 }
