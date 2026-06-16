@@ -57,6 +57,7 @@ function battery(x, y, pct, color) {
 const claude = { label: "Claude", w5: 34, wk: 62, t: 17 };
 const codex = { label: "Codex", wk: 84 };
 const cursor = { label: "Cursor", mo: 100 };
+const manus = { label: "Manus", cr: "4,312 cr left" };
 
 function body(style, th) {
   const inX = 14, w = CW - 28;
@@ -68,14 +69,16 @@ function body(style, th) {
     g += `<g transform="translate(0,66)">${T(inX, 9, "weekly", th.mut, 10, { font: th.font })}${bar(inX + 34, 3, w - 70, claude.wk, th.cf(claude.wk), th.track)}${T(valX, 9, "62%", th.cf(claude.wk), 11, { anchor: "end", font: th.font })}</g>`;
     g += T(inX, 102, "Codex", th.fg, 13, { w: 500, font: th.font });
     g += `<g transform="translate(0,108)">${T(inX, 9, "weekly", th.mut, 10, { font: th.font })}${bar(inX + 34, 3, w - 70, codex.wk, th.cf(codex.wk), th.track)}${T(valX, 9, "84%", th.cf(codex.wk), 11, { anchor: "end", font: th.font })}</g>`;
-    g += T(inX, 146, "fal.ai", th.fg, 13, { w: 500, font: th.font }) + T(valX, 146, "$19.98 left", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 142, "fal.ai", th.fg, 13, { w: 500, font: th.font }) + T(valX, 142, "$19.98 left", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 164, "Manus", th.fg, 13, { w: 500, font: th.font }) + T(valX, 164, manus.cr, th.fg, 12, { anchor: "end", font: th.font });
   } else if (style === "rings") {
     const cy = 66;
     g += ring(inX + 26, cy, claude.wk, th.cf(claude.wk), th.fg) + T(inX + 26, cy + 36, "Claude", th.mut, 11, { anchor: "middle", font: th.font });
     g += ring(CW / 2, cy, codex.wk, th.cf(codex.wk), th.fg) + T(CW / 2, cy + 36, "Codex", th.mut, 11, { anchor: "middle", font: th.font });
     g += ring(CW - inX - 26, cy, cursor.mo, th.cf(cursor.mo), th.fg) + T(CW - inX - 26, cy + 36, "Cursor", th.mut, 11, { anchor: "middle", font: th.font });
-    g += T(inX, 138, "OpenRouter", th.mut, 12, { font: th.font }) + T(valX, 138, "$13.72 left", th.fg, 12, { anchor: "end", font: th.font });
-    g += T(inX, 160, "DeepSeek", th.mut, 12, { font: th.font }) + T(valX, 160, "$17.31 left", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 132, "OpenRouter", th.mut, 12, { font: th.font }) + T(valX, 132, "$13.72 left", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 152, "DeepSeek", th.mut, 12, { font: th.font }) + T(valX, 152, "$17.31 left", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 172, "Manus", th.mut, 12, { font: th.font }) + T(valX, 172, manus.cr, th.fg, 12, { anchor: "end", font: th.font });
   } else if (style === "segments") {
     [["Claude", claude.wk], ["Codex", codex.wk], ["Cursor", cursor.mo]].forEach(([l, p], i) => {
       const y = 46 + i * 40;
@@ -87,9 +90,10 @@ function body(style, th) {
       const y = 44 + i * 30;
       g += T(inX, y + 13, l, th.fg, 13, { w: 500, font: th.font }) + battery(inX + 96, y, p, th.cf(p)) + T(valX, y + 13, p + "%", th.fg, 12, { anchor: "end", font: th.font });
     });
-    g += T(inX, 156, "fal.ai", th.mut, 12, { font: th.font }) + T(valX, 156, "$19.98", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 150, "fal.ai", th.mut, 12, { font: th.font }) + T(valX, 150, "$19.98", th.fg, 12, { anchor: "end", font: th.font });
+    g += T(inX, 170, "Manus", th.mut, 12, { font: th.font }) + T(valX, 170, "4,312 cr", th.fg, 12, { anchor: "end", font: th.font });
   } else if (style === "tiles") {
-    const items = [["Claude", "62%"], ["Codex", "84%"], ["Cursor", "100%"], ["fal.ai", "$19.98"]];
+    const items = [["Claude", "62%"], ["Codex", "84%"], ["Cursor", "100%"], ["Manus", "4,312cr"]];
     items.forEach(([l, v], i) => {
       const [bg, fg, barC, trk] = TILEC[i];
       const tx = inX + (i % 2) * ((w) / 2 + 4), ty = 36 + Math.floor(i / 2) * 66, tw = w / 2 - 4;
@@ -105,7 +109,7 @@ function body(style, th) {
       const barStr = (br ? "[" : "") + fc.repeat(f) + ec.repeat(10 - f) + (br ? "]" : "");
       g += T(inX, y, lab, th.fg, 13, { font: th.font }) + T(inX + 70, y, barStr, th.cf(p), 13, { font: th.font }) + T(valX, y, p + "%", th.cf(p), 13, { anchor: "end", font: th.font });
     });
-    g += T(inX, 150, "fal $19.98  openrtr $13.72", th.mut, 12, { font: th.font });
+    g += T(inX, 150, "fal $19.98  manus 4,312cr", th.mut, 12, { font: th.font });
   }
   return g;
 }
