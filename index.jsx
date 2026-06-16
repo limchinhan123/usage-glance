@@ -131,9 +131,6 @@ function spendLine(s, T) {
           {s.limit != null && s.consumed ? `$${s.consumed.usd.toFixed(2)} / $${s.limit.toFixed(2)}` : `${bal(s)} left`}
         </span>
       </div>
-      {s.consumed && s.consumed.usd != null && s.limit == null ? (
-        <div style={{ fontSize: 10, color: T.mut }}>${s.consumed.usd.toFixed(2)} used</div>
-      ) : null}
     </div>
   );
 }
