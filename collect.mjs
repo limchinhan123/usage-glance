@@ -281,9 +281,14 @@ async function collectClaude() {
   const base = { key: "claude", label: "Claude", kind: "limit" };
   const cache = readClaudeCache();
   if (cache && cache.windows?.length) {
+    const nowSec = Math.floor(Date.now() / 1000);
     const noNewUsage = lastClaudeActivityMs() <= cache.ts; // quota unchanged since last reading
     const tooSoon = Date.now() - cache.ts < CLAUDE_MIN_PROBE_MS; // avoid hammering mid-burst
-    if (noNewUsage || tooSoon) {
+    // A window whose reset has elapsed (e.g. laptop was asleep/off across it) refilled to an
+    // unknown level with an unknown new reset time. That's genuinely stale — probe to refresh
+    // rather than showing a fabricated "100% / no reset" (which also drops the time bar).
+    const resetPassed = cache.windows.some((w) => w.resetsAt && w.resetsAt < nowSec);
+    if ((noNewUsage && !resetPassed) || tooSoon) {
       return { ...base, windows: adjustForResets(cache.windows), ok: true, note: noNewUsage ? "idle" : "cached" };
     }
   }
