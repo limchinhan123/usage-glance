@@ -64,7 +64,9 @@ The easy ones. Each exposes a documented balance/credits endpoint hit with your 
 
 Manus's public API documents `GET /v2/usage.list` — a paginated, signed **transaction ledger** (grants `+`, task costs `−`, refunds `+`). The tempting move is to sum it for a balance. **Don't.** Monthly subscription credits *expire* with no offsetting `−` entry, so the sum overcounts (it read ~7,500 when the account truly had ~4,300).
 
-The right call is an **undocumented sibling**, `GET /v2/usage.balance`, found by probing the v2 namespace (a real path 401s on a bad key; a fake one 404s). It returns the number straight: `total_credits = subscription_credits` (the monthly, resetting bucket) `+ gift_credits` (non-expiring), plus `next_grant_time` for the reset clock. One call, exact match to the in-app figure, no pagination. Auth is the `x-manus-api-key` header. Cached ~10 minutes like the other balances.
+The right call is an **undocumented sibling**, `GET /v2/usage.balance`, found by probing the v2 namespace (a real path 401s on a bad key; a fake one 404s). It returns the number straight: `total_credits = subscription_credits` (the monthly, resetting bucket) `+ gift_credits` (non-expiring). One call, exact match to the in-app figure, no pagination. Auth is the `x-manus-api-key` header. Cached ~10 minutes like the other balances.
+
+Two caveats, both handled. (1) Being undocumented, the endpoint has been seen to **404 intermittently** — so the row falls back to the last-known balance (marked `stale`) rather than blanking, and self-heals when it returns. (2) The API's `next_grant_time` is the *annual* plan renewal, not the **monthly** credit refresh — that lands on a roughly fixed day (the Pro grants came Apr 10, May 10, Jun 12). So the **renewal countdown** shown under the row is computed locally from a configurable `manusRenewalDay` (default 10), independent of the balance call.
 
 ---
 

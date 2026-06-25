@@ -511,9 +511,11 @@ async function collectFal() {
 
 // ---------- Manus — credit balance from /v2/usage.balance ----------
 // Manus exposes a clean balance: total_credits = subscription_credits (monthly,
-// resetting) + gift_credits (non-expiring), plus next_grant_time for the reset.
-// (Don't sum the /v2/usage.list ledger for this — expired monthly credits leave
-// no entry, so the sum overcounts.) Auth via the x-manus-api-key header.
+// resetting) + gift_credits (non-expiring). (Don't sum the /v2/usage.list ledger
+// for this — expired monthly credits leave no entry, so the sum overcounts.)
+// Auth via the x-manus-api-key header. NOTE: this endpoint is undocumented and
+// has been observed to 404 intermittently; cachedSource serves the last-known
+// balance as "stale" when that happens, so the row degrades gracefully.
 async function collectManus() {
   const base = { key: "manus", label: "Manus", kind: "spend", unit: "cr" };
   const key = secret("MANUS_API_KEY");
@@ -524,15 +526,28 @@ async function collectManus() {
     });
     const bal = r.json?.total_credits;
     if (!r.ok || bal == null) return { ...base, ok: false, note: `http ${r.status}` };
-    return {
-      ...base,
-      balance: Number(bal),
-      resetsAt: r.json.next_grant_time ? Number(r.json.next_grant_time) : null,
-      ok: true,
-    };
+    return { ...base, balance: Number(bal), ok: true };
   } catch (e) {
     return { ...base, ok: false, note: String(e.message || e) };
   }
+}
+
+// Manus subscription credits refresh monthly on a roughly fixed day (Pro grants
+// landed Apr 10, May 10, Jun 12 — "usually the 10th"). The API's next_grant_time
+// is the *annual* plan renewal, not this, so compute the monthly date locally
+// from a configurable day-of-month. Clamps to the last day of shorter months.
+function nextMonthlyRenewal(day) {
+  const at = (y, m) => {
+    const dim = new Date(y, m + 1, 0).getDate();
+    return new Date(y, m, Math.min(day, dim), 0, 0, 0, 0).getTime();
+  };
+  const now = new Date();
+  let t = at(now.getFullYear(), now.getMonth());
+  if (t <= Date.now()) {
+    const m = now.getMonth() + 1;
+    t = at(now.getFullYear() + (m > 11 ? 1 : 0), m % 12);
+  }
+  return Math.floor(t / 1000);
 }
 
 // ---------- main ----------
@@ -549,6 +564,11 @@ const settled = await Promise.allSettled(jobs);
 const sources = settled.map((s) =>
   s.status === "fulfilled" ? s.value : { key: "?", label: "?", ok: false, note: String(s.reason) }
 );
+
+// Manus renewal countdown is computed locally (always fresh, even when the
+// balance is served from stale cache), overriding whatever the row carried.
+const manusSrc = sources.find((s) => s.key === "manus");
+if (manusSrc) manusSrc.resetsAt = nextMonthlyRenewal(config.manusRenewalDay ?? 10);
 
 const ui = { size: (config.size || "small").toLowerCase() };
 process.stdout.write(JSON.stringify({ ts: Date.now(), ui, sources }, null, 2) + "\n");

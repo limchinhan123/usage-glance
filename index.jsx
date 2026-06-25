@@ -122,7 +122,14 @@ function barWin(w, T, label, color, value, reset, key) {
     </div>
   );
 }
+function renewLabel(ts) {
+  if (!ts) return null;
+  const days = Math.max(0, Math.ceil((ts * 1000 - Date.now()) / 86400000));
+  const date = new Date(ts * 1000).toLocaleDateString([], { month: "short", day: "numeric" });
+  return `renews ${date} · ${days}d`;
+}
 function spendLine(s, T) {
+  const renew = renewLabel(s.resetsAt);
   return (
     <div className="ug-row" key={s.key}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -131,6 +138,7 @@ function spendLine(s, T) {
           {s.limit != null && s.consumed ? `$${s.consumed.usd.toFixed(2)} / $${s.limit.toFixed(2)}` : `${bal(s)} left`}
         </span>
       </div>
+      {renew ? <div style={{ fontSize: 10, color: T.mut, textAlign: "right" }}>{renew}</div> : null}
     </div>
   );
 }

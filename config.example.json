@@ -3,6 +3,7 @@
   "size": "small",
   "spendTtlMinutes": 10,
   "claudeMinProbeMinutes": 10,
+  "manusRenewalDay": 10,
   "sources": {
     "claude": true,
     "codex": true,
