@@ -372,6 +372,10 @@ function normalizeClaudeUsage(j) {
 // ---------- TTL cache for network "spend" rows (balances change slowly) ----------
 // Per-source files so parallel collectors never clobber each other's cache.
 const SPEND_TTL_MS = (config.spendTtlMinutes ?? 10) * 60 * 1000;
+// How long a last-known balance may be shown (dimmed, marked "stale") after the
+// source starts failing. Past this it's surfaced as "—" rather than a number that
+// looks live — a confidently-wrong balance is worse than an honest blank.
+const STALE_MAX_MS = (config.staleMaxMinutes ?? 60) * 60 * 1000;
 const spendCachePath = (key) => join(CONFIG_DIR, `.spend-${key}.json`);
 
 // Run fn but serve a cached result while it's still fresh; on failure, serve stale.
@@ -393,7 +397,13 @@ async function cachedSource(key, fn) {
     } catch {}
     return v;
   }
-  if (c?.value?.ok) return { ...c.value, note: "stale" };
+  if (c?.value?.ok) {
+    const age = Date.now() - c.ts;
+    // Briefly tolerate an outage by showing the last value, clearly marked stale…
+    if (age < STALE_MAX_MS) return { ...c.value, note: "stale", stale: true };
+    // …but once it's too old to trust, don't keep showing a number that looks live.
+    return { ...c.value, balance: null, note: "unavailable", stale: true };
+  }
   return v;
 }
 

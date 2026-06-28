@@ -130,12 +130,15 @@ function renewLabel(ts) {
 }
 function spendLine(s, T) {
   const renew = renewLabel(s.resetsAt);
+  const value = s.limit != null && s.consumed
+    ? `$${s.consumed.usd.toFixed(2)} / $${s.limit.toFixed(2)}`
+    : s.balance != null ? `${bal(s)} left` : "—";
   return (
     <div className="ug-row" key={s.key}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <span style={{ fontWeight: 500, fontSize: 13 }}>{s.label}{s.unofficial ? <span style={{ color: T.time }}> *</span> : null}</span>
-        <span style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
-          {s.limit != null && s.consumed ? `$${s.consumed.usd.toFixed(2)} / $${s.limit.toFixed(2)}` : `${bal(s)} left`}
+        <span style={{ fontSize: 12, fontVariantNumeric: "tabular-nums", color: s.stale ? T.mut : undefined }}>
+          {value}{s.stale ? <span style={{ fontSize: 9, color: T.mut }}> stale</span> : null}
         </span>
       </div>
       {renew ? <div style={{ fontSize: 10, color: T.mut, textAlign: "right" }}>{renew}</div> : null}
