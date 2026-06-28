@@ -519,20 +519,22 @@ async function collectFal() {
   }
 }
 
-// ---------- Manus — credit balance from /v2/usage.balance ----------
-// Manus exposes a clean balance: total_credits = subscription_credits (monthly,
-// resetting) + gift_credits (non-expiring). (Don't sum the /v2/usage.list ledger
-// for this — expired monthly credits leave no entry, so the sum overcounts.)
-// Auth via the x-manus-api-key header. NOTE: this endpoint is undocumented and
-// has been observed to 404 intermittently; cachedSource serves the last-known
-// balance as "stale" when that happens, so the row degrades gracefully.
+// ---------- Manus — credit balance via the Connect/gRPC OpenAPI service ----------
+// Manus shipped, then retired, a REST alias (GET /v2/usage.balance, now 404). The
+// stable source is the Connect RPC the native app + the API key authenticate
+// against: POST /openapi.v2.OpenapiV2Service/GetAvailableCredits -> { total_credits,
+// pro_monthly_credits, refresh_credits, ... }. (Don't sum the /v2/usage.list ledger
+// for balance — expired credits leave no entry, so the sum overcounts.) Auth via
+// the x-manus-api-key header; Connect unary call is a POST with a JSON body.
 async function collectManus() {
   const base = { key: "manus", label: "Manus", kind: "spend", unit: "cr" };
   const key = secret("MANUS_API_KEY");
   if (!key) return { ...base, ok: false, note: "no key" };
   try {
-    const r = await fetchJson("https://api.manus.ai/v2/usage.balance", {
-      headers: { "x-manus-api-key": key },
+    const r = await fetchJson("https://api.manus.ai/openapi.v2.OpenapiV2Service/GetAvailableCredits", {
+      method: "POST",
+      headers: { "x-manus-api-key": key, "Content-Type": "application/json", "Connect-Protocol-Version": "1" },
+      body: "{}",
     });
     const bal = r.json?.total_credits;
     if (!r.ok || bal == null) return { ...base, ok: false, note: `http ${r.status}` };

@@ -64,9 +64,19 @@ The easy ones. Each exposes a documented balance/credits endpoint hit with your 
 
 Manus's public API documents `GET /v2/usage.list` — a paginated, signed **transaction ledger** (grants `+`, task costs `−`, refunds `+`). The tempting move is to sum it for a balance. **Don't.** Monthly subscription credits *expire* with no offsetting `−` entry, so the sum overcounts (it read ~7,500 when the account truly had ~4,300).
 
-The right call is an **undocumented sibling**, `GET /v2/usage.balance`, found by probing the v2 namespace (a real path 401s on a bad key; a fake one 404s). It returns the number straight: `total_credits = subscription_credits` (the monthly, resetting bucket) `+ gift_credits` (non-expiring). One call, exact match to the in-app figure, no pagination. Auth is the `x-manus-api-key` header. Cached ~10 minutes like the other balances.
+The real source is a **Connect/gRPC RPC**, not REST. Manus briefly shipped a REST alias (`GET /v2/usage.balance`) and then **retired it** (it now 404s). Reaching for that dead path is a trap. The stable endpoint — the one the native app *and* your API key actually authenticate against — is found by `strings`-ing the Manus app binary, which reveals the service catalog:
 
-Two caveats, both handled. (1) Being undocumented, the endpoint has been seen to **404 intermittently** — so the row falls back to the last-known balance (marked `stale`) rather than blanking, and self-heals when it returns. (2) The API's `next_grant_time` is the *annual* plan renewal, not the **monthly** credit refresh — that lands on a roughly fixed day (the Pro grants came Apr 10, May 10, Jun 12). So the **renewal countdown** shown under the row is computed locally from a configurable `manusRenewalDay` (default 10), independent of the balance call.
+```
+POST https://api.manus.ai/openapi.v2.OpenapiV2Service/GetAvailableCredits
+     header: x-manus-api-key: <key>        body: {}   (Connect unary call)
+ -> { "total_credits": 282, "pro_monthly_credits": 4000, "refresh_credits": 300, ... }
+```
+
+`total_credits` is the live balance — exact match to the in-app figure, one call, no pagination. Cached ~10 minutes like the other balances.
+
+One more wrinkle on the **renewal countdown**: the API exposes `next_refresh_time` (the *daily* free-credit top-up) and the plan's *annual* renewal, but **not** the monthly Pro refresh — that lands on a roughly fixed day (the Pro grants came Apr 10, May 10, Jun 12). So the countdown shown under the row is computed locally from a configurable `manusRenewalDay` (default 10), independent of the balance call.
+
+> **Resilience note.** Because Manus has already moved this endpoint once, the collector treats *any* spend balance defensively: a brief outage shows the last value dimmed and marked `stale`, and once it's too old to trust the row degrades to `—` rather than displaying a confidently-wrong number. It self-heals the moment the endpoint answers again.
 
 ---
 
