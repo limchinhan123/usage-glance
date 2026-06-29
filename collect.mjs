@@ -188,7 +188,22 @@ function collectCodex() {
     };
   };
 
-  const windows = [windowFromBucket(snap.primary, "5h"), windowFromBucket(snap.secondary, "weekly")].filter(Boolean);
+  // A local snapshot can outlive its window: once resets_at passes, that limit has
+  // already refilled (there's no probe to tell us). Reflect that — 100% remaining —
+  // and roll the reset forward by whole windows so the clock shows the next reset
+  // instead of a stuck past time. The next Codex session corrects it exactly.
+  const now = Math.floor(Date.now() / 1000);
+  const rollForward = (w) => {
+    if (!w.resetsAt || w.resetsAt > now) return w;
+    const step = (w.windowMinutes || 0) * 60;
+    let r = w.resetsAt;
+    if (step > 0) { while (r <= now) r += step; } else { r = null; }
+    return { ...w, remainingPct: 100, resetsAt: r };
+  };
+
+  const windows = [windowFromBucket(snap.primary, "5h"), windowFromBucket(snap.secondary, "weekly")]
+    .filter(Boolean)
+    .map(rollForward);
   return { key: "codex", label: "Codex", kind: "limit", windows, ok: windows.length > 0 };
 }
 
