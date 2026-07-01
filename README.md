@@ -50,7 +50,13 @@ That ping is the **only token-spending part of the entire widget**, so it's **ac
 
 ### Codex — local snapshots, zero auth
 
-The Codex CLI writes a `rate_limits` snapshot into every session's rollout log (`~/.codex/sessions/**/rollout-*.jsonl`): a `primary` bucket (5-hour window) and `secondary` (weekly), each with `used_percent` and `resets_at`. The widget scans the newest session, grabs the last snapshot, and computes `remaining = 100 − used_percent`. Pure local file read — no network, no keys.
+Codex writes a `rate_limits` snapshot into every session's rollout log (`~/.codex/sessions/**/rollout-*.jsonl`): a `primary` bucket (5-hour window) and `secondary` (weekly), each with `used_percent` and `resets_at`. The widget scans the newest session, grabs the last snapshot, and computes `remaining = 100 − used_percent`. Pure local file read — no network, no keys.
+
+Three things that bite here, all handled:
+
+- **The snapshot is only written on an actual model turn.** It's not a live gauge — it's the reading from your last Codex message. Leave Codex idle (app open but no turns) for hours and the number sits still because *nothing new is being logged*. That's expected, not a bug.
+- **Rollout logs get huge** — a long-running session can pass Node's ~512 MB string limit, so slurping the file whole throws (and, if unguarded, takes the whole collector down). The reader **tail-reads** the last few MB of large files instead; `rate_limits` events recur throughout the log, so a recent one is still there.
+- **A snapshot can outlive its window.** Once `resets_at` passes with no fresh turn to update it, that limit has already refilled. Rather than showing a stuck "resets now" at a stale percentage, the widget marks the window **100%** and rolls the reset clock forward to the next cycle; the next real turn corrects it exactly. (Claude's header-based reader does the equivalent when a subscription window elapses.)
 
 ### Cursor — borrowing the app's own session
 
